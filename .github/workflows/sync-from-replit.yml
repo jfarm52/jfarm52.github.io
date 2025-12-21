@@ -1,0 +1,48 @@
+name: Sync from Replit
+
+# This workflow can be triggered manually or on a schedule
+on:
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
+  schedule:
+    - cron: '0 */6 * * *'  # Runs every 6 hours (optional - remove if not needed)
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main  # or your default branch
+
+      - name: Fetch latest from Replit
+        run: |
+          echo "Fetching latest index.html from Replit production site..."
+          curl -L -k https://sitewalk.carlislenergy.com/ -o index.html
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet index.html; then
+            echo "No changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push if changes exist
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add index.html
+          git commit -m "Auto-sync from Replit production site
+
+          Synced at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Source: https://sitewalk.carlislenergy.com/"
+          git push
+
+      - name: No changes
+        if: steps.check_changes.outputs.has_changes == 'false'
+        run: echo "✓ Repository is already up to date with Replit"
