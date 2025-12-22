@@ -337,7 +337,12 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
                     m_kwh = total_kwh
                 if m_amount is None:
                     m_amount = total_amount
-                
+
+                # SKIP non-electric meters (water, fire, gas) - they have no kWh
+                if m_kwh is None or m_kwh == 0:
+                    print(f"[bill_extractor] Skipping non-electric meter {meter_number} - no kWh data")
+                    continue
+
                 bill_id = insert_bill(
                     bill_file_id=file_id,
                     account_id=account_id,
