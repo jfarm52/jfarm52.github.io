@@ -1021,12 +1021,12 @@ def get_grouped_bills_data(project_id, service_filter=None):
                     if service_filter == 'electric':
                         # Query from bills table which has bill_file_id for service_type join
                         cur.execute('''
-                            SELECT DISTINCT b.id, b.period_start AS billing_start_date, b.period_end AS billing_end_date, 
-                                   b.total_kwh AS kwh, b.total_amount_due AS total_charges_usd, 
+                            SELECT DISTINCT b.id, b.period_start, b.period_end,
+                                   b.total_kwh, b.total_amount_due,
                                    ubf.original_filename AS source_file
                             FROM bills b
                             JOIN utility_bill_files ubf ON b.bill_file_id = ubf.id
-                            WHERE b.meter_id = %s 
+                            WHERE b.meter_id = %s
                               AND ubf.service_type IN ('electric', 'combined')
                             ORDER BY b.period_end DESC
                         ''', (meter['id'],))
@@ -1043,10 +1043,10 @@ def get_grouped_bills_data(project_id, service_filter=None):
                     for read in reads:
                         meter_data['reads'].append({
                             'id': read['id'],
-                            'period_start': str(read['billing_start_date']) if read['billing_start_date'] else None,
-                            'period_end': str(read['billing_end_date']) if read['billing_end_date'] else None,
-                            'kwh': float(read['kwh']) if read['kwh'] else None,
-                            'total_charge': float(read['total_charges_usd']) if read['total_charges_usd'] else None,
+                            'period_start': str(read['period_start']) if read['period_start'] else None,
+                            'period_end': str(read['period_end']) if read['period_end'] else None,
+                            'total_kwh': float(read['total_kwh']) if read['total_kwh'] else None,
+                            'total_amount_due': float(read['total_amount_due']) if read['total_amount_due'] else None,
                             'source_file': read.get('source_file')
                         })
                     
