@@ -317,7 +317,7 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
                 # Check both direct meter fields and reads[0] (newer structure)
                 m_kwh = clean_numeric(meter_data.get('kwh_total'))
                 m_amount = clean_numeric(meter_data.get('total_charge'))
-                
+
                 # If not found at top level of meter, check reads[0]
                 reads = meter_data.get('reads', [])
                 if reads and len(reads) > 0:
@@ -331,17 +331,16 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
                         period_start = first_read.get('period_start')
                     if not period_end:
                         period_end = first_read.get('period_end')
-                
-                # Fall back to totals if still not found
-                if m_kwh is None:
-                    m_kwh = total_kwh
-                if m_amount is None:
-                    m_amount = total_amount
 
-                # SKIP non-electric meters (water, fire, gas) - they have no kWh
+                # CRITICAL: Check if this meter has kWh BEFORE fallback to total
+                # Water/fire/gas meters have no kWh - skip them entirely
                 if m_kwh is None or m_kwh == 0:
                     print(f"[bill_extractor] Skipping non-electric meter {meter_number} - no kWh data")
                     continue
+
+                # Only fall back to totals for electric meters that passed the kWh check
+                if m_amount is None:
+                    m_amount = total_amount
 
                 bill_id = insert_bill(
                     bill_file_id=file_id,
