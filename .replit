@@ -1,0 +1,53 @@
+modules = ["web", "python-3.11", "postgresql-16"]
+[agent]
+expertMode = true
+integrations = ["python_openai:1.0.0"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["fontconfig", "freetype", "ghostscript", "glib", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "libjpeg_turbo", "mupdf", "openjpeg", "pango", "swig", "tesseract", "xcbuild", "zip"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "web-server"
+
+[[workflows.workflow]]
+name = "web-server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python app.py"
+waitForPort = 5000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3000
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "--workers=2", "--timeout=120", "app:app"]
+build = ["pip", "install", "-r", "requirements.txt"]
+
+[userenv]
+
+[userenv.production]
+UTILITY_BILLS_ENABLED = "true"
+
+[userenv.development]
+UTILITY_BILLS_ENABLED = "true"

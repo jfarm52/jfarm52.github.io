@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pythonlibs/
+.uv/
+
+# Data files
+projects_data.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/tmp/
+
+# Environment
+.env
+.venv
+env/
+venv/
+full-project*.zip
+full-project-part-*
+zitta99X
+*.zip
+full-project*.zip
+full-project-part-*
+zitta99X
+*.zip
+attached_assets/
+bill_screenshots/
+deleted_projects.json
