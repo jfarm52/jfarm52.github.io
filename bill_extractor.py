@@ -334,6 +334,7 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
 
                 # CRITICAL: Check if this meter has kWh BEFORE fallback to total
                 # Water/fire/gas meters have no kWh - skip them entirely
+                print(f"[bill_extractor] DEBUG: meter {meter_number} - m_kwh={m_kwh} (type={type(m_kwh)})")
                 if m_kwh is None or m_kwh == 0:
                     print(f"[bill_extractor] Skipping non-electric meter {meter_number} - no kWh data")
                     continue
