@@ -10672,16 +10672,16 @@
                         facilitySumAvgPerDay += meter.avgCostPerDay || meter.avgCostPerDayDollars || 0;
                         for (const bill of (meter.bills || [])) {
                             // Create unique key for deduplication
-                            const periodStart = bill.period_start || '';
-                            const periodEnd = bill.period_end || '';
+                            const periodStart = bill.periodStart || '';
+                            const periodEnd = bill.periodEnd || '';
                             const billKey = `${meterNumber}|${periodStart}|${periodEnd}`;
-                            
+
                             // Only count each unique period once per meter
                             if (!seenBillKeys.has(billKey)) {
                                 seenBillKeys.add(billKey);
                                 facilityBillCount++;
-                                facilityTotalKwh += bill.total_kwh || 0;
-                                facilityTotalCost += bill.total_amount_due || 0;
+                                facilityTotalKwh += bill.totalKwh || 0;
+                                facilityTotalCost += bill.totalAmountDue || 0;
                             }
                         }
                     }
@@ -10708,8 +10708,8 @@
                 for (const account of data.accounts) {
                     for (const meter of (account.meters || [])) {
                         for (const bill of (meter.bills || [])) {
-                            const periodStart = bill.period_start;
-                            const periodEnd = bill.period_end;
+                            const periodStart = bill.periodStart;
+                            const periodEnd = bill.periodEnd;
                             if (periodStart) {
                                 const d = new Date(periodStart);
                                 if (!facilityOldestDate || d < facilityOldestDate) facilityOldestDate = d;
@@ -10856,18 +10856,18 @@
                         if (bills.length > 0) {
                             // Sort bills by period (newest first)
                             bills.sort((a, b) => {
-                                const dateA = a.periodEnd || a.period_end || '';
-                                const dateB = b.periodEnd || b.period_end || '';
+                                const dateA = a.periodEnd || '';
+                                const dateB = b.periodEnd || '';
                                 return dateB.localeCompare(dateA);
                             });
-                            
+
                             for (const bill of bills) {
                                 const billId = bill.billId || bill.id;
-                                const periodLabel = bill.periodLabel || bill.period_label || formatBillPeriod(bill);
-                                const billKwh = bill.total_kwh || 0;
-                                const billCost = bill.total_amount_due || 0;
+                                const periodLabel = bill.periodLabel || formatBillPeriod(bill);
+                                const billKwh = bill.totalKwh || 0;
+                                const billCost = bill.totalAmountDue || 0;
                                 const billRateValue = billKwh > 0 ? ((billCost / billKwh) * 100) : 0;
-                                const billDays = bill.daysInPeriod || bill.days || 30;
+                                const billDays = bill.daysInPeriod || 30;
                                 const billAvgDayValue = billDays > 0 ? (billCost / billDays) : 0;
                                 
                                 html += `
@@ -10924,8 +10924,8 @@
         };
         
         function formatBillPeriod(bill) {
-            const start = bill.period_start;
-            const end = bill.period_end;
+            const start = bill.periodStart;
+            const end = bill.periodEnd;
             if (end) {
                 const d = new Date(end);
                 return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
