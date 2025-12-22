@@ -1014,7 +1014,7 @@ def get_grouped_bills_data(project_id, service_filter=None):
                     meter_data = {
                         'id': meter['id'],
                         'meter_number': meter['meter_number'],
-                        'reads': []
+                        'bills': []
                     }
                     
                     # Get reads for this meter (from bills table for proper service_type filtering)
@@ -1041,7 +1041,7 @@ def get_grouped_bills_data(project_id, service_filter=None):
                     reads = cur.fetchall()
                     
                     for read in reads:
-                        meter_data['reads'].append({
+                        meter_data['bills'].append({
                             'id': read['id'],
                             'period_start': str(read['period_start']) if read['period_start'] else None,
                             'period_end': str(read['period_end']) if read['period_end'] else None,
