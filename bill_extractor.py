@@ -199,11 +199,11 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
             # Fallback: Extract rate schedule from text patterns
             if not rate_schedule or rate_schedule.strip() == '':
                 import re
-                # LADWP rate patterns: A-1, A-2, D-2, TOU-D-4-9PM, etc.
+                # LADWP rate patterns - capture full description line including TOU info
                 rate_patterns = [
-                    r'Rate\s*Schedule\s*[:\-]?\s*([A-Z]{1,3}-?\d+(?:-\d+)?(?:-\d+[AP]M)?)',
-                    r'Schedule\s*([A-Z]{1,3}-?\d+(?:-\d+)?(?:-\d+[AP]M)?)',
-                    r'Rate\s*([A-Z]{1,3}-?\d+(?:-\d+)?(?:-\d+[AP]M)?)',
+                    r'Rate\s*Schedule\s*[:\-]?\s*([^\n]+)',  # Full line after "Rate Schedule"
+                    r'Schedule\s*[:\-]?\s*([A-Z][^\n]+)',    # Full line after "Schedule"
+                    r'Rate\s*([A-Z]{1,3}-?\d+[^\n]*)',       # Fallback: Rate code + rest of line
                 ]
                 for pattern in rate_patterns:
                     match = re.search(pattern, raw_text, re.IGNORECASE)
