@@ -190,11 +190,49 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
         meters = extracted_data.get('meters', [])
         service_address = get_val('service_address', '')
         rate_schedule = get_val('rate', 'rate_schedule', '')
-        
+
+        # LADWP-specific regex fallback for missing fields
+        if utility_name == "LADWP":
+            # Get the raw cleaned text for regex fallback
+            raw_text = extracted_data.get('_raw_text', '')
+
+            # Fallback: Extract rate schedule from text patterns
+            if not rate_schedule or rate_schedule.strip() == '':
+                import re
+                # LADWP rate patterns: A-1, A-2, D-2, TOU-D-4-9PM, etc.
+                rate_patterns = [
+                    r'Rate\s*Schedule\s*[:\-]?\s*([A-Z]{1,3}-?\d+(?:-\d+)?(?:-\d+[AP]M)?)',
+                    r'Schedule\s*([A-Z]{1,3}-?\d+(?:-\d+)?(?:-\d+[AP]M)?)',
+                    r'Rate\s*([A-Z]{1,3}-?\d+(?:-\d+)?(?:-\d+[AP]M)?)',
+                ]
+                for pattern in rate_patterns:
+                    match = re.search(pattern, raw_text, re.IGNORECASE)
+                    if match:
+                        rate_schedule = match.group(1).strip()
+                        print(f"[bill_extractor] Regex fallback extracted rate_schedule: {rate_schedule}")
+                        break
+
         # Get billing period
         period_start = get_val('billing_period_start')
         period_end = get_val('billing_period_end')
         due_date = get_val('due_date')
+
+        # LADWP-specific regex fallback for due_date
+        if utility_name == "LADWP" and not due_date:
+            raw_text = extracted_data.get('_raw_text', '')
+            import re
+            # LADWP due date patterns
+            due_patterns = [
+                r'Due\s*Date\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',
+                r'Payment\s*Due\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',
+                r'DUE\s*(\d{1,2}/\d{1,2}/\d{4})',
+            ]
+            for pattern in due_patterns:
+                match = re.search(pattern, raw_text, re.IGNORECASE)
+                if match:
+                    due_date = match.group(1).strip()
+                    print(f"[bill_extractor] Regex fallback extracted due_date: {due_date}")
+                    break
         
         # Get totals from detailed_data or top-level
         total_kwh = get_val('kwh_total', 'total_kwh')
@@ -940,6 +978,8 @@ def extract_bill_data_text_based(file_id, job_queue, file_path, project_id):
         job_queue.update_state(file_id, JobState.CACHED_HIT, "Using cached result")
         print(f"[bill_extractor] Cache hit for hash {text_hash[:12]}")
         result = cached['parse_result']
+        # Add cleaned text to result for regex fallback extraction
+        result['_raw_text'] = clean_result.cleaned_text
         save_bill_to_normalized_tables(file_id, project_id, result)
         update_file_processing_status(file_id, 'complete', cached.get('metrics', {}))
         return result
@@ -967,6 +1007,8 @@ def extract_bill_data_text_based(file_id, job_queue, file_path, project_id):
     
     if parse_result.success:
         cache.save_result(file_id, text_hash, clean_result.cleaned_text, parse_result.data, metrics)
+        # Add cleaned text to data for regex fallback extraction
+        parse_result.data['_raw_text'] = clean_result.cleaned_text
         save_bill_to_normalized_tables(file_id, project_id, parse_result.data)
         update_file_processing_status(file_id, 'complete', metrics)
         print(f"[bill_extractor] Extraction complete for file {file_id}")
