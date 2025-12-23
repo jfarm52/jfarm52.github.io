@@ -199,17 +199,19 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
             # Fallback: Extract rate schedule from text patterns
             if not rate_schedule or rate_schedule.strip() == '':
                 import re
-                # LADWP rate patterns - capture full description including TOU and KVAR info
-                # Need to handle multi-line rate schedules
+                # LADWP rate patterns - be greedy, capture everything after "Rate Schedule"
                 rate_patterns = [
-                    r'Rate\s*Schedule\s*[:\-]?\s*([A-Z0-9\-\[\]i\s]+(?:Subtransmission|Primary|Secondary|Electric)[^\n]*(?:TOU[^\n]*)?(?:KVAR[^\n]*)?)',  # Full rate with TOU and KVAR
-                    r'Rate\s*Schedule\s*[:\-]?\s*([^\n]+(?:\n[A-Z][^\n]+)?)',  # Multi-line fallback
-                    r'Schedule\s*[:\-]?\s*([A-Z][^\n]+)',    # Single line after "Schedule"
+                    r'Rate\s*Schedule\s*[:\-]?\s*(.{20,200})',  # Capture 20-200 chars after "Rate Schedule"
+                    r'RATE\s*SCHEDULE\s*[:\-]?\s*(.{20,200})',  # Uppercase variant
                 ]
                 for pattern in rate_patterns:
-                    match = re.search(pattern, raw_text, re.IGNORECASE)
+                    match = re.search(pattern, raw_text, re.IGNORECASE | re.DOTALL)
                     if match:
-                        rate_schedule = match.group(1).strip()
+                        # Get the matched text and clean it up
+                        rate_text = match.group(1)
+                        # Stop at common delimiters (double newline, "NEXT SCHEDULED", etc.)
+                        rate_text = re.split(r'\n\n|NEXT\s*SCHEDULED|METER\s*NUMBER|BILLING\s*PERIOD', rate_text, maxsplit=1)[0]
+                        rate_schedule = rate_text.strip()
                         # Clean up extra whitespace
                         rate_schedule = ' '.join(rate_schedule.split())
                         print(f"[bill_extractor] Regex fallback extracted rate_schedule: {rate_schedule}")
@@ -218,15 +220,19 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
             # Fallback: Extract service_address from text patterns
             if not service_address or service_address.strip() == '':
                 import re
-                # LADWP service address patterns
+                # LADWP service address patterns - be simple and greedy
                 address_patterns = [
-                    r'SERVICE\s*ADDRESS[:\-]?\s*([0-9]+[^\n]+(?:ST|AVE|BLVD|RD|DR|LN|WAY|COURT|PLACE)[^\n]*[A-Z]{2}\s+\d{5})',  # Full address with zip
-                    r'Service\s*Address[:\-]?\s*([0-9]+[^\n]+)',  # Fallback
+                    r'SERVICE\s*ADDRESS[:\-]?\s*(.{10,100})',  # Capture 10-100 chars after "SERVICE ADDRESS"
+                    r'Service\s*Address[:\-]?\s*(.{10,100})',  # Mixed case
                 ]
                 for pattern in address_patterns:
                     match = re.search(pattern, raw_text, re.IGNORECASE)
                     if match:
-                        service_address = match.group(1).strip()
+                        # Get matched text and clean it
+                        addr_text = match.group(1)
+                        # Stop at newline or common delimiters
+                        addr_text = re.split(r'\n|POD-ID|BILLING', addr_text, maxsplit=1)[0]
+                        service_address = addr_text.strip()
                         print(f"[bill_extractor] Regex fallback extracted service_address: {service_address}")
                         break
 
