@@ -1320,6 +1320,32 @@ def delete_bills_for_file(bill_file_id):
         conn.close()
 
 
+def delete_account_if_empty(account_id):
+    """
+    Delete an account if it has no bills.
+    Returns True if account was deleted, False otherwise.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            # Check if account has any bills
+            cur.execute('SELECT COUNT(*) FROM bills WHERE account_id = %s', (account_id,))
+            bill_count = cur.fetchone()[0]
+
+            if bill_count == 0:
+                # Delete the account (meters will cascade delete)
+                cur.execute('DELETE FROM utility_accounts WHERE id = %s', (account_id,))
+                conn.commit()
+                print(f"[bills_db] Deleted empty account {account_id} with no bills")
+                return True
+            return False
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+
 def insert_bill(bill_file_id, account_id, meter_id, utility_name, service_address, 
                 rate_schedule, period_start, period_end, total_kwh, total_amount_due,
                 energy_charges=None, demand_charges=None, other_charges=None, taxes=None,

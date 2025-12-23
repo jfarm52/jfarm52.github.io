@@ -480,7 +480,11 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
         if missing_fields and len(missing_fields) > 0:
             update_bill_file_review_status(file_id, 'needs_review')
             print(f"[bill_extractor] Updated bill file {file_id} review_status to 'needs_review' - missing: {missing_fields}")
-        
+
+        # Cleanup: Delete account if it has no bills (happens when all meters are filtered)
+        from bills_db import delete_account_if_empty
+        delete_account_if_empty(account_id)
+
         # Return boolean for backward compatibility
         return True
     except Exception as e:
