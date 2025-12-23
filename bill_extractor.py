@@ -220,21 +220,27 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
             # Fallback: Extract service_address from text patterns
             if not service_address or service_address.strip() == '':
                 import re
-                # LADWP service address patterns - be simple and greedy
+                print(f"[bill_extractor] DEBUG: Attempting service_address regex extraction...")
+                print(f"[bill_extractor] DEBUG: raw_text length = {len(raw_text)} chars")
+                # LADWP service address patterns - try multiple approaches
                 address_patterns = [
-                    r'SERVICE\s*ADDRESS[:\-]?\s*(.{10,100})',  # Capture 10-100 chars after "SERVICE ADDRESS"
+                    r'SERVICE\s*ADDRESS[:\-]?\s*(.{10,100})',  # "SERVICE ADDRESS"
                     r'Service\s*Address[:\-]?\s*(.{10,100})',  # Mixed case
+                    r'(?:Address|ADDR)[:\-]?\s*(\d+\s+[A-Z][^\n]{10,80})',  # Any "Address: 1234 Street..."
+                    r'(\d{2,5}\s+[A-Z][A-Za-z\s]+(?:Street|ST|Avenue|AVE|Boulevard|BLVD|Road|RD|Drive|DR|Lane|LN|Way|WAY)[^\n]{0,50})',  # Street address pattern
                 ]
-                for pattern in address_patterns:
+                for i, pattern in enumerate(address_patterns):
                     match = re.search(pattern, raw_text, re.IGNORECASE)
                     if match:
                         # Get matched text and clean it
                         addr_text = match.group(1)
                         # Stop at newline or common delimiters
-                        addr_text = re.split(r'\n|POD-ID|BILLING', addr_text, maxsplit=1)[0]
+                        addr_text = re.split(r'\n|POD-ID|BILLING|ACCOUNT', addr_text, maxsplit=1)[0]
                         service_address = addr_text.strip()
-                        print(f"[bill_extractor] Regex fallback extracted service_address: {service_address}")
+                        print(f"[bill_extractor] Regex fallback extracted service_address (pattern {i}): {service_address}")
                         break
+                else:
+                    print(f"[bill_extractor] DEBUG: No service_address patterns matched")
 
         # Get billing period
         period_start = get_val('billing_period_start')
