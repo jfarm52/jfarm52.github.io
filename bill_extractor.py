@@ -199,17 +199,35 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
             # Fallback: Extract rate schedule from text patterns
             if not rate_schedule or rate_schedule.strip() == '':
                 import re
-                # LADWP rate patterns - capture full description line including TOU info
+                # LADWP rate patterns - capture full description including TOU and KVAR info
+                # Need to handle multi-line rate schedules
                 rate_patterns = [
-                    r'Rate\s*Schedule\s*[:\-]?\s*([^\n]+)',  # Full line after "Rate Schedule"
-                    r'Schedule\s*[:\-]?\s*([A-Z][^\n]+)',    # Full line after "Schedule"
-                    r'Rate\s*([A-Z]{1,3}-?\d+[^\n]*)',       # Fallback: Rate code + rest of line
+                    r'Rate\s*Schedule\s*[:\-]?\s*([A-Z0-9\-\[\]i\s]+(?:Subtransmission|Primary|Secondary|Electric)[^\n]*(?:TOU[^\n]*)?(?:KVAR[^\n]*)?)',  # Full rate with TOU and KVAR
+                    r'Rate\s*Schedule\s*[:\-]?\s*([^\n]+(?:\n[A-Z][^\n]+)?)',  # Multi-line fallback
+                    r'Schedule\s*[:\-]?\s*([A-Z][^\n]+)',    # Single line after "Schedule"
                 ]
                 for pattern in rate_patterns:
                     match = re.search(pattern, raw_text, re.IGNORECASE)
                     if match:
                         rate_schedule = match.group(1).strip()
+                        # Clean up extra whitespace
+                        rate_schedule = ' '.join(rate_schedule.split())
                         print(f"[bill_extractor] Regex fallback extracted rate_schedule: {rate_schedule}")
+                        break
+
+            # Fallback: Extract service_address from text patterns
+            if not service_address or service_address.strip() == '':
+                import re
+                # LADWP service address patterns
+                address_patterns = [
+                    r'SERVICE\s*ADDRESS[:\-]?\s*([0-9]+[^\n]+(?:ST|AVE|BLVD|RD|DR|LN|WAY|COURT|PLACE)[^\n]*[A-Z]{2}\s+\d{5})',  # Full address with zip
+                    r'Service\s*Address[:\-]?\s*([0-9]+[^\n]+)',  # Fallback
+                ]
+                for pattern in address_patterns:
+                    match = re.search(pattern, raw_text, re.IGNORECASE)
+                    if match:
+                        service_address = match.group(1).strip()
+                        print(f"[bill_extractor] Regex fallback extracted service_address: {service_address}")
                         break
 
         # Get billing period
@@ -235,7 +253,7 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
                     due_date = match.group(1).strip()
                     print(f"[bill_extractor] Regex fallback extracted due_date: {due_date}")
                     break
-        
+
         # Get totals from detailed_data or top-level
         total_kwh = get_val('kwh_total', 'total_kwh')
         total_amount = get_val('amount_due', 'total_amount_due', 'total_owed', 'new_charges')
@@ -481,9 +499,9 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
             update_bill_file_review_status(file_id, 'needs_review')
             print(f"[bill_extractor] Updated bill file {file_id} review_status to 'needs_review' - missing: {missing_fields}")
 
-        # Cleanup: Delete account if it has no bills (happens when all meters are filtered)
-        from bills_db import delete_account_if_empty
-        delete_account_if_empty(account_id)
+        # Cleanup: Delete ALL empty accounts in project (happens when all meters are filtered)
+        from bills_db import delete_all_empty_accounts
+        delete_all_empty_accounts(project_id)
 
         # Return boolean for backward compatibility
         return True

@@ -1346,6 +1346,45 @@ def delete_account_if_empty(account_id):
         conn.close()
 
 
+def delete_all_empty_accounts(project_id):
+    """
+    Delete all accounts in a project that have no bills.
+    Returns count of accounts deleted.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            # Find all accounts with no bills for this project
+            cur.execute('''
+                SELECT ua.id, ua.account_number
+                FROM utility_accounts ua
+                LEFT JOIN bills b ON ua.id = b.account_id
+                WHERE ua.project_id = %s
+                GROUP BY ua.id, ua.account_number
+                HAVING COUNT(b.id) = 0
+            ''', (project_id,))
+            empty_accounts = cur.fetchall()
+
+            deleted_count = 0
+            for account_row in empty_accounts:
+                account_id = account_row[0]
+                account_number = account_row[1]
+                # Delete the account (meters will cascade delete)
+                cur.execute('DELETE FROM utility_accounts WHERE id = %s', (account_id,))
+                deleted_count += 1
+                print(f"[bills_db] Deleted empty account {account_id} (account_number={account_number}) with no bills")
+
+            conn.commit()
+            if deleted_count > 0:
+                print(f"[bills_db] Total empty accounts deleted: {deleted_count}")
+            return deleted_count
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+
 def insert_bill(bill_file_id, account_id, meter_id, utility_name, service_address, 
                 rate_schedule, period_start, period_end, total_kwh, total_amount_due,
                 energy_charges=None, demand_charges=None, other_charges=None, taxes=None,
