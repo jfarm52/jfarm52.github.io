@@ -221,8 +221,10 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
         if utility_name == "LADWP" and not due_date:
             raw_text = extracted_data.get('_raw_text', '')
             import re
-            # LADWP due date patterns
+            # LADWP due date patterns (AUTO PAYMENT is the actual due date field)
             due_patterns = [
+                r'AUTO\s*PAYMENT\s*[:\-]?\s*(\w+\s+\d{1,2},?\s+\d{4})',  # AUTO PAYMENT Dec 12, 2025
+                r'AUTO\s*PAYMENT\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',     # AUTO PAYMENT 12/12/2025
                 r'Due\s*Date\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',
                 r'Payment\s*Due\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',
                 r'DUE\s*(\d{1,2}/\d{1,2}/\d{4})',
