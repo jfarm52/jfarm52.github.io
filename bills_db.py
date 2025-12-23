@@ -1552,9 +1552,10 @@ def get_account_summary(account_id, months=12, service_filter=None):
             for meter in meters:
                 meter_id = meter['meterId']
                 cur.execute(f'''
-                    SELECT 
+                    SELECT
                         b.id, b.period_start, b.period_end, b.days_in_period,
                         b.total_kwh, b.total_amount_due, b.blended_rate_dollars,
+                        b.service_address, b.rate_schedule, b.due_date,
                         b.energy_charges, b.demand_charges, b.other_charges, b.taxes,
                         b.tou_on_kwh, b.tou_mid_kwh, b.tou_off_kwh, b.tou_super_off_kwh,
                         b.tou_on_rate_dollars, b.tou_mid_rate_dollars, b.tou_off_rate_dollars, b.tou_super_off_rate_dollars,
@@ -1593,7 +1594,10 @@ def get_account_summary(account_id, months=12, service_filter=None):
                         'daysInPeriod': days,
                         'totalKwh': total_kwh,
                         'totalAmountDue': total_cost,
-                        'blendedRateDollars': blended_rate
+                        'blendedRateDollars': blended_rate,
+                        'serviceAddress': b['service_address'],
+                        'rateSchedule': b['rate_schedule'],
+                        'dueDate': str(b['due_date']) if b['due_date'] else None
                     })
                 
                 meter['bills'] = bills
