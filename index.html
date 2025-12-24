@@ -11264,13 +11264,13 @@
                 deleteSelectedBtn.addEventListener('click', async function() {
                     const checkedBoxes = document.querySelectorAll('.embedded-bill-checkbox:checked');
                     const fileIds = Array.from(checkedBoxes).map(cb => cb.dataset.fileId);
-                    
+
                     if (fileIds.length === 0) return;
-                    
-                    const confirmMsg = fileIds.length === 1 
-                        ? 'Delete this bill file and its extracted data?' 
+
+                    const confirmMsg = fileIds.length === 1
+                        ? 'Delete this bill file and its extracted data?'
                         : `Delete ${fileIds.length} bill files and their extracted data?`;
-                    
+
                     const confirmed = await showConfirmModal({
                         title: 'Delete Bill Files',
                         message: confirmMsg,
@@ -11279,8 +11279,9 @@
                         danger: true
                     });
                     if (!confirmed) return;
-                    
+
                     let deleted = 0;
+                    let failed = 0;
                     for (const fileId of fileIds) {
                         try {
                             const resp = await fetch(`/api/projects/${encodeURIComponent(projectId)}/bills/files/${fileId}`, { method: 'DELETE' });
@@ -11289,14 +11290,26 @@
                                 deleted++;
                                 const row = document.querySelector(`.embedded-bill-file-row[data-file-id="${fileId}"]`);
                                 if (row) row.remove();
+                            } else {
+                                failed++;
+                                console.error('[embeddedBills] Delete failed:', result.error);
                             }
                         } catch (err) {
+                            failed++;
                             console.error('[embeddedBills] Delete error:', err);
                         }
                     }
-                    
+
+                    // Show detailed message about deletions
+                    if (deleted > 0 && failed === 0) {
+                        showToast(`${deleted} file${deleted === 1 ? '' : 's'} deleted`, 'success');
+                    } else if (deleted > 0 && failed > 0) {
+                        showToast(`${deleted} file${deleted === 1 ? '' : 's'} deleted, ${failed} failed`, 'warning');
+                    } else if (failed > 0) {
+                        showToast(`Failed to delete ${failed} file${failed === 1 ? '' : 's'}`, 'error');
+                    }
+
                     if (deleted > 0) {
-                        showToast(`${deleted} file(s) deleted`, 'success');
                         updateDeleteButtonVisibility();
                         // Re-render if all files deleted
                         if (document.querySelectorAll('.embedded-bill-file-row').length === 0) {
