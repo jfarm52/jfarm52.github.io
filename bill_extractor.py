@@ -191,47 +191,48 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
         service_address = get_val('service_address', '')
         rate_schedule = get_val('rate', 'rate_schedule', '')
 
-        # LADWP-specific regex fallback for missing fields
-        if utility_name == "LADWP":
-            # Get the raw cleaned text for regex fallback
-            raw_text = extracted_data.get('_raw_text', '')
+        # UNIVERSAL regex fallback for missing fields (works for ALL utilities)
+        raw_text = extracted_data.get('_raw_text', '')
 
-            # Fallback: Extract rate schedule from text patterns
+        if raw_text:
+            import re
+
+            # Fallback: Extract rate schedule from text patterns (ALL utilities)
             if not rate_schedule or rate_schedule.strip() == '':
-                import re
-                # LADWP rate patterns - be greedy, capture everything after "Rate Schedule"
                 rate_patterns = [
-                    r'Rate\s*Schedule\s*[:\-]?\s*(.{20,200})',  # Capture 20-200 chars after "Rate Schedule"
-                    r'RATE\s*SCHEDULE\s*[:\-]?\s*(.{20,200})',  # Uppercase variant
+                    r'Rate\s*Schedule\s*[:\-]?\s*(.{5,200})',  # "Rate Schedule: ..."
+                    r'RATE\s*SCHEDULE\s*[:\-]?\s*(.{5,200})',  # Uppercase variant
+                    r'Rate\s*Plan\s*[:\-]?\s*(.{5,150})',      # PG&E, SDG&E use "Rate Plan"
+                    r'Tariff\s*[:\-]?\s*(.{5,150})',           # Some utilities use "Tariff"
+                    r'Service\s*Class\s*[:\-]?\s*(.{5,150})',  # Alternative labeling
                 ]
                 for pattern in rate_patterns:
                     match = re.search(pattern, raw_text, re.IGNORECASE | re.DOTALL)
                     if match:
-                        # Get the matched text and clean it up
                         rate_text = match.group(1)
-                        # Stop at common delimiters (double newline, "NEXT SCHEDULED", etc.)
-                        rate_text = re.split(r'\n\n|NEXT\s*SCHEDULED|METER\s*NUMBER|BILLING\s*PERIOD', rate_text, maxsplit=1)[0]
+                        # Stop at common delimiters
+                        rate_text = re.split(r'\n\n|NEXT\s*SCHEDULED|METER\s*NUMBER|BILLING\s*PERIOD|SERVICE\s*ADDRESS|ACCOUNT|POD', rate_text, maxsplit=1)[0]
                         rate_schedule = rate_text.strip()
-                        # Clean up extra whitespace
                         rate_schedule = ' '.join(rate_schedule.split())
                         print(f"[bill_extractor] Regex fallback extracted rate_schedule: {rate_schedule}")
                         break
 
-            # Fallback: Extract service_address from text patterns
+            # Fallback: Extract service_address from text patterns (ALL utilities)
             if not service_address or service_address.strip() == '':
-                import re
-                # LADWP service address patterns
                 address_patterns = [
-                    r'SERVICE\s*ADDRESS[:\-]?\s*(.{10,100})',  # "SERVICE ADDRESS" label
-                    r'(\d{2,5}\s+[A-Z][A-Za-z\s]+(?:Street|ST|Avenue|AVE|Boulevard|BLVD|Road|RD|Drive|DR|Lane|LN|Way|WAY)[^\n]{0,50})',  # Street address pattern
+                    r'SERVICE\s*ADDRESS[:\-]?\s*(.{10,100})',        # "SERVICE ADDRESS" label
+                    r'Service\s*Location[:\-]?\s*(.{10,100})',       # Alternative label
+                    r'Premise\s*Address[:\-]?\s*(.{10,100})',        # SDG&E uses this
+                    r'Site\s*Address[:\-]?\s*(.{10,100})',           # Some utilities
+                    # Generic street address pattern (matches any valid US address)
+                    r'(\d{2,5}\s+[A-Z][A-Za-z\s]+(?:Street|ST|Avenue|AVE|Boulevard|BLVD|Road|RD|Drive|DR|Lane|LN|Way|WAY|Court|CT|Place|PL|Circle|CIR|Parkway|PKY)[^\n]{0,50})',
                 ]
                 for pattern in address_patterns:
                     match = re.search(pattern, raw_text, re.IGNORECASE)
                     if match:
-                        # Get matched text and clean it
                         addr_text = match.group(1)
                         # Stop at newline or common delimiters
-                        addr_text = re.split(r'\n|POD-ID|BILLING|ACCOUNT', addr_text, maxsplit=1)[0]
+                        addr_text = re.split(r'\n|POD-ID|BILLING|ACCOUNT|METER', addr_text, maxsplit=1)[0]
                         service_address = addr_text.strip()
                         print(f"[bill_extractor] Regex fallback extracted service_address: {service_address}")
                         break
@@ -241,17 +242,20 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
         period_end = get_val('billing_period_end')
         due_date = get_val('due_date')
 
-        # LADWP-specific regex fallback for due_date
-        if utility_name == "LADWP" and not due_date:
-            raw_text = extracted_data.get('_raw_text', '')
+        # UNIVERSAL regex fallback for due_date (ALL utilities)
+        if not due_date and raw_text:
             import re
-            # LADWP due date patterns (AUTO PAYMENT is the actual due date field)
             due_patterns = [
-                r'AUTO\s*PAYMENT\s*[:\-]?\s*(\w+\s+\d{1,2},?\s+\d{4})',  # AUTO PAYMENT Dec 12, 2025
-                r'AUTO\s*PAYMENT\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',     # AUTO PAYMENT 12/12/2025
-                r'Due\s*Date\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',
-                r'Payment\s*Due\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',
-                r'DUE\s*(\d{1,2}/\d{1,2}/\d{4})',
+                r'Due\s*Date\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',                    # "Due Date: 12/31/2024"
+                r'Due\s*Date\s*[:\-]?\s*(\w+\s+\d{1,2},?\s+\d{4})',                  # "Due Date: Dec 31, 2024"
+                r'Payment\s*Due\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',                 # "Payment Due: ..."
+                r'Payment\s*Due\s*[:\-]?\s*(\w+\s+\d{1,2},?\s+\d{4})',               # "Payment Due: Dec 31, 2024"
+                r'AUTO\s*PAYMENT\s*[:\-]?\s*(\w+\s+\d{1,2},?\s+\d{4})',              # LADWP: "AUTO PAYMENT Dec 12, 2025"
+                r'AUTO\s*PAYMENT\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',                # LADWP numeric format
+                r'Pay\s*By\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',                      # "Pay By: ..."
+                r'Pay\s*By\s*[:\-]?\s*(\w+\s+\d{1,2},?\s+\d{4})',                    # "Pay By: Dec 31, 2024"
+                r'DUE\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})',                           # "DUE: 12/31/2024"
+                r'DUE\s*[:\-]?\s*(\w+\s+\d{1,2},?\s+\d{4})',                         # "DUE: Dec 31, 2024"
             ]
             for pattern in due_patterns:
                 match = re.search(pattern, raw_text, re.IGNORECASE)
@@ -259,6 +263,91 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
                     due_date = match.group(1).strip()
                     print(f"[bill_extractor] Regex fallback extracted due_date: {due_date}")
                     break
+
+        # GENERIC TOU (Time-of-Use) extraction fallback for ALL utilities
+        # This works for LADWP, SCE, PG&E, SDG&E, and other utilities with TOU pricing
+        raw_text = extracted_data.get('_raw_text', '')
+        tou_breakdown_from_regex = []
+
+        if raw_text:
+            import re
+
+            # Check if bill has TOU data by looking for TOU keywords
+            has_tou_keywords = bool(re.search(
+                r'\b(TOU|Time[\s\-]*of[\s\-]*Use|Peak|High[\s\-]*Peak|Low[\s\-]*Peak|On[\s\-]*Peak|Mid[\s\-]*Peak|Off[\s\-]*Peak|Super[\s\-]*Off[\s\-]*Peak|Base[\s\-]*Period)\b',
+                raw_text,
+                re.IGNORECASE
+            ))
+
+            if has_tou_keywords:
+                print(f"[bill_extractor] Detected TOU keywords in bill text - attempting regex extraction")
+
+                # Generic TOU patterns that match most utility bill formats
+                # Pattern 1: "Period Name" followed by kWh value and optionally cost
+                # Examples:
+                #   "High Peak 1,234 kWh $123.45"
+                #   "On-Peak 5,678 $567.89"
+                #   "Mid Peak Energy 2,345 kWh"
+                tou_patterns = [
+                    # Pattern: [Period Name] [number with commas] kWh [optional: $ cost]
+                    r'(High[\s\-]*Peak|Low[\s\-]*Peak|Base|On[\s\-]*Peak|Mid[\s\-]*Peak|Off[\s\-]*Peak|Super[\s\-]*Off[\s\-]*Peak)[\s:]+([\d,]+\.?\d*)\s*kWh(?:\s+\$?([\d,]+\.?\d*))?',
+
+                    # Pattern: Rate table format - "Period | kWh | Rate | Cost"
+                    r'(High[\s\-]*Peak|Low[\s\-]*Peak|Base|On[\s\-]*Peak|Mid[\s\-]*Peak|Off[\s\-]*Peak|Super[\s\-]*Off[\s\-]*Peak)[^\d\n]{0,20}([\d,]+\.?\d*)[^\d\n]{0,20}\$?([\d,]+\.?\d*)[^\d\n]{0,20}\$?([\d,]+\.?\d*)',
+
+                    # Pattern: Compact format - "Period: number kWh @ $rate = $cost"
+                    r'(High[\s\-]*Peak|Low[\s\-]*Peak|Base|On[\s\-]*Peak|Mid[\s\-]*Peak|Off[\s\-]*Peak|Super[\s\-]*Off[\s\-]*Peak)[:\s]+([\d,]+\.?\d*)\s*kWh\s*@?\s*\$?([\d\.]+)\s*=?\s*\$?([\d,]+\.?\d*)',
+                ]
+
+                matches = []
+                for pattern in tou_patterns:
+                    for match in re.finditer(pattern, raw_text, re.IGNORECASE):
+                        period_name = match.group(1).strip()
+                        kwh_str = match.group(2).replace(',', '').strip()
+
+                        # Try to get cost from capture group 3 or 4
+                        cost_str = None
+                        rate_str = None
+                        if len(match.groups()) >= 3 and match.group(3):
+                            # Could be rate or cost - check if group 4 exists
+                            if len(match.groups()) >= 4 and match.group(4):
+                                # Group 3 is rate, group 4 is cost
+                                rate_str = match.group(3).replace(',', '').strip()
+                                cost_str = match.group(4).replace(',', '').strip()
+                            else:
+                                # Group 3 is cost
+                                cost_str = match.group(3).replace(',', '').strip()
+
+                        try:
+                            kwh = float(kwh_str)
+                            cost = float(cost_str) if cost_str else None
+                            rate = float(rate_str) if rate_str else None
+
+                            # Normalize period name for consistency
+                            period_normalized = ' '.join(period_name.split()).title()
+
+                            # Check if we already have this period (avoid duplicates)
+                            existing = next((m for m in matches if m['period'] == period_normalized), None)
+                            if not existing:
+                                tou_entry = {
+                                    'period': period_normalized,
+                                    'kwh': kwh,
+                                    'rate': rate,
+                                    'estimated_cost': cost
+                                }
+                                matches.append(tou_entry)
+                                print(f"[bill_extractor] Regex TOU extraction: {period_normalized} = {kwh} kWh" + (f" @ ${rate}/kWh = ${cost}" if rate and cost else ""))
+                        except (ValueError, TypeError) as e:
+                            print(f"[bill_extractor] Failed to parse TOU values: {e}")
+                            continue
+
+                if matches:
+                    tou_breakdown_from_regex = matches
+                    print(f"[bill_extractor] Generic TOU regex extraction found {len(matches)} periods")
+                else:
+                    print(f"[bill_extractor] TOU keywords detected but no TOU data extracted via regex")
+            else:
+                print(f"[bill_extractor] No TOU keywords detected - skipping TOU extraction")
 
         # Get totals from detailed_data or top-level
         total_kwh = get_val('kwh_total', 'total_kwh')
@@ -370,9 +459,15 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
         print(f"[bill_extractor] service_type: {service_type}")
         
         # Get TOU periods for the bill_tou_periods table
+        # Try AI extraction first, then fallback to regex extraction
         tou_rates = extracted_data.get('tou_rates', [])
         if not tou_rates:
             tou_rates = extracted_data.get('tou_breakdown', [])
+
+        # Fallback to regex-extracted TOU data if AI didn't find any
+        if not tou_rates and tou_breakdown_from_regex:
+            tou_rates = tou_breakdown_from_regex
+            print(f"[bill_extractor] Using regex-extracted TOU data ({len(tou_rates)} periods)")
         
         # If we have meter-specific data, create a bill per meter
         if meters and len(meters) > 0:

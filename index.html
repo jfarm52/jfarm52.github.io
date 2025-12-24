@@ -2796,10 +2796,17 @@
             text-align: center;
             border: 1px solid #e0e0e0;
         }
+        /* Legacy fixed period classes */
         .bills-tou-item.on-peak { border-left: 3px solid #dc3545; }
         .bills-tou-item.mid-peak { border-left: 3px solid #ffc107; }
         .bills-tou-item.off-peak { border-left: 3px solid #28a745; }
         .bills-tou-item.super-off-peak { border-left: 3px solid #9b59b6; }
+        /* Generic TOU color coding based on relative rates */
+        .bills-tou-item.tou-highest { border-left: 3px solid #dc3545; background: #fff5f5; }  /* Red - highest rate */
+        .bills-tou-item.tou-high { border-left: 3px solid #ff8c42; background: #fffaf5; }     /* Orange - high rate */
+        .bills-tou-item.tou-mid { border-left: 3px solid #ffc107; background: #fffef5; }      /* Yellow - mid rate */
+        .bills-tou-item.tou-low { border-left: 3px solid #28a745; background: #f5fff9; }      /* Green - low rate */
+        .bills-tou-item.tou-neutral { border-left: 3px solid #6c757d; background: #f8f9fa; }  /* Gray - neutral/unknown */
         .bills-tou-item .period-name {
             font-size: 0.7rem;
             color: #666;
@@ -7979,48 +7986,92 @@
                         </div>
                     </div>
                 `;
-                
-                // TOU breakdown if available
-                if (tou.onPeakKwh || tou.midPeakKwh || tou.offPeakKwh || tou.superOffPeakKwh) {
+
+                // GENERIC TOU breakdown - uses bill.touPeriods array if available
+                // This works for all utilities (LADWP, SCE, PG&E, SDG&E, etc)
+                const touPeriods = bill.touPeriods || [];
+
+                if (touPeriods && touPeriods.length > 0) {
+                    // Smart color coding based on relative rates
+                    const periodsWithRates = touPeriods.filter(p => p.rateDollarsPerKwh != null && p.rateDollarsPerKwh > 0);
+                    const rates = periodsWithRates.map(p => p.rateDollarsPerKwh);
+                    const minRate = rates.length > 0 ? Math.min(...rates) : 0;
+                    const maxRate = rates.length > 0 ? Math.max(...rates) : 0;
+                    const rateRange = maxRate - minRate;
+
+                    // Helper to get color class based on rate
+                    const getColorClass = (rate) => {
+                        if (rateRange === 0 || rate == null) return 'tou-neutral';
+                        const normalized = (rate - minRate) / rateRange;
+                        if (normalized >= 0.75) return 'tou-highest';  // Red
+                        if (normalized >= 0.5) return 'tou-high';      // Orange
+                        if (normalized >= 0.25) return 'tou-mid';      // Yellow
+                        return 'tou-low';                               // Green
+                    };
+
                     html += '<div class="bills-tou-breakdown">';
-                    
+
+                    for (const period of touPeriods) {
+                        const kwh = period.kwh || 0;
+                        const rate = period.rateDollarsPerKwh;
+                        const cost = period.estCostDollars;
+                        const periodName = period.period || 'Unknown';
+                        const colorClass = getColorClass(rate);
+                        const rateCents = rate ? rate * 100 : null;
+
+                        html += `
+                            <div class="bills-tou-item ${colorClass}">
+                                <div class="period-name">${periodName}</div>
+                                <div class="period-kwh">${formatBillValue(kwh, 'kwh')} kWh</div>
+                                <div class="period-rate">${formatBillValue(rateCents, 'rate')}/kWh</div>
+                                ${cost != null ? `<div class="period-cost">${formatBillValue(cost, 'cost')}</div>` : ''}
+                            </div>
+                        `;
+                    }
+
+                    html += '</div>';
+                }
+                // Fallback to fixed TOU structure if touPeriods not available
+                else if (tou.onPeakKwh || tou.midPeakKwh || tou.offPeakKwh || tou.superOffPeakKwh) {
+                    html += '<div class="bills-tou-breakdown">';
+
                     if (tou.onPeakKwh != null) {
                         const onRateCents = tou.onPeakRateDollars ? tou.onPeakRateDollars * 100 : null;
                         html += `
-                            <div class="bills-tou-item on-peak">
+                            <div class="bills-tou-item tou-highest">
                                 <div class="period-name">On-Peak</div>
                                 <div class="period-kwh">${formatBillValue(tou.onPeakKwh, 'kwh')} kWh</div>
                                 <div class="period-rate">${formatBillValue(onRateCents, 'rate')}/kWh</div>
                             </div>
                         `;
                     }
-                    
+
                     if (tou.midPeakKwh != null) {
                         const midRateCents = tou.midPeakRateDollars ? tou.midPeakRateDollars * 100 : null;
                         html += `
-                            <div class="bills-tou-item mid-peak">
+                            <div class="bills-tou-item tou-mid">
                                 <div class="period-name">Mid-Peak</div>
                                 <div class="period-kwh">${formatBillValue(tou.midPeakKwh, 'kwh')} kWh</div>
                                 <div class="period-rate">${formatBillValue(midRateCents, 'rate')}/kWh</div>
                             </div>
                         `;
                     }
-                    
+
                     if (tou.offPeakKwh != null) {
                         const offRateCents = tou.offPeakRateDollars ? tou.offPeakRateDollars * 100 : null;
                         html += `
-                            <div class="bills-tou-item off-peak">
+                            <div class="bills-tou-item tou-low">
                                 <div class="period-name">Off-Peak</div>
                                 <div class="period-kwh">${formatBillValue(tou.offPeakKwh, 'kwh')} kWh</div>
                                 <div class="period-rate">${formatBillValue(offRateCents, 'rate')}/kWh</div>
                             </div>
                         `;
                     }
-                    
+
                     if (tou.superOffPeakKwh != null) {
                         const superOffRateCents = tou.superOffPeakRateDollars ? tou.superOffPeakRateDollars * 100 : null;
                         html += `
-                            <div class="bills-tou-item super-off-peak">
+                            <div class="bills-tou-item tou-low">
                                 <div class="period-name">Super Off</div>
                                 <div class="period-kwh">${formatBillValue(tou.superOffPeakKwh, 'kwh')} kWh</div>
                                 <div class="period-rate">${formatBillValue(superOffRateCents, 'rate')}/kWh</div>
@@ -8028,10 +8079,10 @@
                             </div>
                         `;
                     }
-                    
+
                     html += '</div>';
                 }
-                
+
                 return html;
             },
             
