@@ -11261,7 +11261,12 @@
             
             // Delete Selected button
             if (deleteSelectedBtn) {
-                deleteSelectedBtn.addEventListener('click', async function() {
+                // IMPORTANT: Remove all previous event listeners by cloning the button
+                // This prevents the delete handler from running multiple times
+                const newDeleteBtn = deleteSelectedBtn.cloneNode(true);
+                deleteSelectedBtn.parentNode.replaceChild(newDeleteBtn, deleteSelectedBtn);
+
+                newDeleteBtn.addEventListener('click', async function() {
                     const checkedBoxes = document.querySelectorAll('.embedded-bill-checkbox:checked');
                     const fileIds = Array.from(checkedBoxes).map(cb => cb.dataset.fileId);
 

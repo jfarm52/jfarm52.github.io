@@ -200,18 +200,18 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
             # Fallback: Extract rate schedule from text patterns (ALL utilities)
             if not rate_schedule or rate_schedule.strip() == '':
                 rate_patterns = [
-                    r'Rate\s*Schedule\s*[:\-]?\s*(.{5,200})',  # "Rate Schedule: ..."
-                    r'RATE\s*SCHEDULE\s*[:\-]?\s*(.{5,200})',  # Uppercase variant
-                    r'Rate\s*Plan\s*[:\-]?\s*(.{5,150})',      # PG&E, SDG&E use "Rate Plan"
-                    r'Tariff\s*[:\-]?\s*(.{5,150})',           # Some utilities use "Tariff"
-                    r'Service\s*Class\s*[:\-]?\s*(.{5,150})',  # Alternative labeling
+                    r'Rate\s*Schedule\s*[:\-]?\s*(.{5,250})',  # "Rate Schedule: ..." (increased to 250 chars)
+                    r'RATE\s*SCHEDULE\s*[:\-]?\s*(.{5,250})',  # Uppercase variant
+                    r'Rate\s*Plan\s*[:\-]?\s*(.{5,200})',      # PG&E, SDG&E use "Rate Plan"
+                    r'Tariff\s*[:\-]?\s*(.{5,200})',           # Some utilities use "Tariff"
+                    r'Service\s*Class\s*[:\-]?\s*(.{5,200})',  # Alternative labeling
                 ]
                 for pattern in rate_patterns:
                     match = re.search(pattern, raw_text, re.IGNORECASE | re.DOTALL)
                     if match:
                         rate_text = match.group(1)
-                        # Stop at common delimiters
-                        rate_text = re.split(r'\n\n|NEXT\s*SCHEDULED|METER\s*NUMBER|BILLING\s*PERIOD|SERVICE\s*ADDRESS|ACCOUNT|POD', rate_text, maxsplit=1)[0]
+                        # Stop at strong delimiters only (removed weak ones like SERVICE ADDRESS, ACCOUNT, POD)
+                        rate_text = re.split(r'\n\n|NEXT\s*SCHEDULED|METER\s*NUMBER|BILLING\s*PERIOD(?:\s|:)', rate_text, maxsplit=1)[0]
                         rate_schedule = rate_text.strip()
                         rate_schedule = ' '.join(rate_schedule.split())
                         print(f"[bill_extractor] Regex fallback extracted rate_schedule: {rate_schedule}")
