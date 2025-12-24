@@ -11265,6 +11265,10 @@
                     const checkedBoxes = document.querySelectorAll('.embedded-bill-checkbox:checked');
                     const fileIds = Array.from(checkedBoxes).map(cb => cb.dataset.fileId);
 
+                    // Debug: log file IDs to check for duplicates
+                    console.log('[embeddedBills] Deleting file IDs:', fileIds);
+                    console.log('[embeddedBills] Unique file IDs:', [...new Set(fileIds)]);
+
                     if (fileIds.length === 0) return;
 
                     const confirmMsg = fileIds.length === 1
@@ -11283,11 +11287,14 @@
                     let deleted = 0;
                     let failed = 0;
                     for (const fileId of fileIds) {
+                        console.log(`[embeddedBills] Deleting file ${fileId}...`);
                         try {
                             const resp = await fetch(`/api/projects/${encodeURIComponent(projectId)}/bills/files/${fileId}`, { method: 'DELETE' });
                             const result = await resp.json();
+                            console.log(`[embeddedBills] Delete response for ${fileId}:`, result);
                             if (result.success) {
                                 deleted++;
+                                console.log(`[embeddedBills] Deleted count now: ${deleted}`);
                                 const row = document.querySelector(`.embedded-bill-file-row[data-file-id="${fileId}"]`);
                                 if (row) row.remove();
                             } else {
@@ -11299,6 +11306,8 @@
                             console.error('[embeddedBills] Delete error:', err);
                         }
                     }
+
+                    console.log(`[embeddedBills] Final counts - deleted: ${deleted}, failed: ${failed}`);
 
                     // Show detailed message about deletions
                     if (deleted > 0 && failed === 0) {
