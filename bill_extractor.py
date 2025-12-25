@@ -191,6 +191,25 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
         service_address = get_val('service_address', '')
         rate_schedule = get_val('rate', 'rate_schedule', '')
 
+        # VALIDATE AI EXTRACTIONS: Reject bad data to force regex fallback
+        # Rate schedules should be SHORT CODES like "TOU-GS-2-E", NOT long disclaimer text
+        if rate_schedule:
+            # Check for common disclaimer phrases that indicate wrong extraction
+            bad_phrases = ['contact', 'commission', 'safety', 'disconnected',
+                          'for more information', 'please', 'may', 'ensure',
+                          'service is', 'you may', 'reasons', 'public utilities']
+            has_bad_phrase = any(phrase in rate_schedule.lower() for phrase in bad_phrases)
+            is_too_long = len(rate_schedule) > 25  # Rate codes are typically 5-20 chars
+
+            if has_bad_phrase or is_too_long:
+                print(f"[bill_extractor] Rejecting bad rate_schedule from AI: '{rate_schedule[:60]}...'")
+                rate_schedule = ''  # Force regex fallback
+
+        # Service address should be reasonably complete (not just partial)
+        if service_address and len(service_address) < 15:
+            print(f"[bill_extractor] Service address seems incomplete: '{service_address}'")
+            # Don't clear it, but the regex might find a better one
+
         # UNIVERSAL regex fallback for missing fields (works for ALL utilities)
         raw_text = extracted_data.get('_raw_text', '')
 
@@ -200,25 +219,23 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
             # Fallback: Extract rate schedule from text patterns (ALL utilities)
             if not rate_schedule or rate_schedule.strip() == '':
                 rate_patterns = [
-                    r'Rate\s*Schedule\s*[:\-]?\s*(.{5,250})',  # "Rate Schedule: ..." (increased to 250 chars)
-                    r'RATE\s*SCHEDULE\s*[:\-]?\s*(.{5,250})',  # Uppercase variant
-                    r'Rate\s*Plan\s*[:\-]?\s*(.{5,200})',      # PG&E, SDG&E use "Rate Plan"
-                    r'Tariff\s*[:\-]?\s*(.{5,200})',           # Some utilities use "Tariff"
-                    r'Service\s*Class\s*[:\-]?\s*(.{5,200})',  # Alternative labeling
+                    r'Rate\s*Schedule\s*[:\-]?\s*([A-Z0-9\-]+(?:\s[A-Z0-9\-]+)?)',  # SHORT CODES: "TOU-GS-2-E", "EV2-A"
+                    r'RATE\s*SCHEDULE\s*[:\-]?\s*([A-Z0-9\-]+(?:\s[A-Z0-9\-]+)?)',  # Uppercase variant
+                    r'Rate\s*Plan\s*[:\-]?\s*([A-Z0-9\-]+(?:\s[A-Z0-9\-]+)?)',      # PG&E, SDG&E use "Rate Plan"
+                    r'Tariff\s*[:\-]?\s*([A-Z0-9\-]+(?:\s[A-Z0-9\-]+)?)',           # Some utilities use "Tariff"
+                    r'Service\s*Class\s*[:\-]?\s*([A-Z0-9\-]+)',                    # Alternative labeling
+                    r'Schedule\s*[:\-]?\s*([A-Z0-9\-]+(?:\s[A-Z0-9\-]+)?)',         # Just "Schedule:"
                 ]
                 for pattern in rate_patterns:
-                    match = re.search(pattern, raw_text, re.IGNORECASE | re.DOTALL)
+                    match = re.search(pattern, raw_text, re.MULTILINE)
                     if match:
-                        rate_text = match.group(1)
-                        # Stop at strong delimiters only (removed weak ones like SERVICE ADDRESS, ACCOUNT, POD)
-                        rate_text = re.split(r'\n\n|NEXT\s*SCHEDULED|METER\s*NUMBER|BILLING\s*PERIOD(?:\s|:)', rate_text, maxsplit=1)[0]
-                        rate_schedule = rate_text.strip()
-                        rate_schedule = ' '.join(rate_schedule.split())
-                        # Truncate to 95 chars to fit database varchar(100) limit
-                        if len(rate_schedule) > 95:
-                            rate_schedule = rate_schedule[:95].strip()
-                        print(f"[bill_extractor] Regex fallback extracted rate_schedule: {rate_schedule}")
-                        break
+                        rate_schedule = match.group(1).strip()
+                        # Validate it's a reasonable rate code (5-25 chars, alphanumeric with hyphens)
+                        if 3 <= len(rate_schedule) <= 25 and not any(word in rate_schedule.lower() for word in ['contact', 'please', 'may', 'service']):
+                            print(f"[bill_extractor] Regex fallback extracted rate_schedule: {rate_schedule}")
+                            break
+                        else:
+                            rate_schedule = ''  # Invalid, keep searching
 
             # Fallback: Extract service_address from text patterns (ALL utilities)
             if not service_address or service_address.strip() == '':
@@ -244,6 +261,11 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
         period_start = get_val('billing_period_start')
         period_end = get_val('billing_period_end')
         due_date = get_val('due_date')
+
+        # VALIDATE due_date: Reject "N/A" or invalid values
+        if due_date and (due_date.upper() == 'N/A' or due_date.upper() == 'NA' or due_date == 'None'):
+            print(f"[bill_extractor] Rejecting invalid due_date from AI: '{due_date}'")
+            due_date = None  # Force regex fallback
 
         # UNIVERSAL regex fallback for due_date (ALL utilities)
         if not due_date and raw_text:
