@@ -214,6 +214,9 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
                         rate_text = re.split(r'\n\n|NEXT\s*SCHEDULED|METER\s*NUMBER|BILLING\s*PERIOD(?:\s|:)', rate_text, maxsplit=1)[0]
                         rate_schedule = rate_text.strip()
                         rate_schedule = ' '.join(rate_schedule.split())
+                        # Truncate to 95 chars to fit database varchar(100) limit
+                        if len(rate_schedule) > 95:
+                            rate_schedule = rate_schedule[:95].strip()
                         print(f"[bill_extractor] Regex fallback extracted rate_schedule: {rate_schedule}")
                         break
 
