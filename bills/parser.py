@@ -37,6 +37,7 @@ PASS_B_SCHEMA = {
     "service_address": "",
     "rate_schedule": "",
     "billing_period": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"},
+    "due_date": "",
     "total_kwh": None,
     "total_charges": None,
     "amount_due": None,
@@ -45,9 +46,11 @@ PASS_B_SCHEMA = {
     "kwh_on_peak": None,
     "kwh_mid_peak": None,
     "kwh_off_peak": None,
+    "kwh_super_off_peak": None,
     "rate_on_peak": None,
     "rate_mid_peak": None,
     "rate_off_peak": None,
+    "rate_super_off_peak": None,
     "max_demand_kw": None,
     "confidence": 0.0,
     "meters": []
@@ -216,26 +219,38 @@ For SCE (Southern California Edison) bills:
 - account_number: 10-12 digit number near top (common: ending in 4369 or 6457)
 - rate_schedule: SHORT CODE like "TOU-GS-2-E", "TOU-8-B" (5-15 chars max). Look in Electric Charges section. Long text is NOT rate schedule.
 - service_address: Complete address with street, city, state, ZIP
-- TOU data: "On-Peak", "Mid-Peak", "Off-Peak", "Super Off-Peak" kWh and rates
+- due_date: Payment due date in MM/DD/YYYY or text format
+- TOU data: Extract Time-of-Use periods into specific fields:
+  * kwh_on_peak: kWh for "On-Peak" period
+  * kwh_mid_peak: kWh for "Mid-Peak" period
+  * kwh_off_peak: kWh for "Off-Peak" period
+  * kwh_super_off_peak: kWh for "Super Off-Peak" period
+  * rate_on_peak: Rate per kWh for On-Peak (as decimal, e.g., 0.25 for $0.25/kWh)
+  * rate_mid_peak: Rate per kWh for Mid-Peak
+  * rate_off_peak: Rate per kWh for Off-Peak
+  * rate_super_off_peak: Rate per kWh for Super Off-Peak
 
 For SDG&E (San Diego Gas & Electric) bills:
 - utility_name: "San Diego Gas & Electric" or "SDG&E"
 - account_number: Typically 10 digits
 - rate_schedule: SHORT CODE like "DR-SES", "AL-TOU", "DG-R", "EV-TOU-5" (5-15 chars max)
-- TOU data: "On-Peak", "Off-Peak", "Super Off-Peak" periods
+- due_date: Payment due date
+- TOU data: Extract into kwh_on_peak, kwh_off_peak, kwh_super_off_peak and corresponding rates
 
 For PG&E (Pacific Gas & Electric) bills:
 - utility_name: "Pacific Gas & Electric" or "PG&E"
 - account_number: 10-12 digits, format XXXX-XXXX-XX
 - rate_schedule: SHORT CODE like "E-TOU-C", "A-10", "E-19", "EV2-A" (5-15 chars max)
-- TOU data: "Peak", "Part-Peak", "Off-Peak" periods
+- due_date: Payment due date
+- TOU data: "Peak"=kwh_on_peak, "Part-Peak"=kwh_mid_peak, "Off-Peak"=kwh_off_peak with rates
 
 For LADWP (Los Angeles Department of Water and Power) bills:
 - utility_name: "LADWP" or "Los Angeles Department of Water and Power"
 - account_number: Use "ACCOUNT NUMBER" from header (NOT "SA #")
 - rate_schedule: SHORT CODE like "R-1B", "A-2", "D-1"
+- due_date: Payment due date (often labeled "AUTO PAYMENT" date)
 - Separate electric charges from water charges (often combined)
-- TOU data: "High Peak"=On-Peak, "Low Peak"=Off-Peak, "Base"
+- TOU data: "High Peak"=kwh_on_peak, "Low Peak"=kwh_off_peak, "Base"=kwh_super_off_peak with rates
 
 For RPU (Riverside Public Utilities) bills:
 - utility_name: "Riverside Public Utilities" or "RPU"
@@ -404,6 +419,7 @@ JSON:"""
                 'customer_account': data.get('account_number'),
                 'service_address': data.get('service_address', ''),
                 'rate': data.get('rate_schedule', ''),
+                'due_date': data.get('due_date', ''),
                 'billing_period_start': period_start,
                 'billing_period_end': period_end,
                 'kwh_total': data.get('total_kwh'),
@@ -414,9 +430,11 @@ JSON:"""
                 'kwh_on_peak': data.get('kwh_on_peak'),
                 'kwh_mid_peak': data.get('kwh_mid_peak'),
                 'kwh_off_peak': data.get('kwh_off_peak'),
+                'kwh_super_off_peak': data.get('kwh_super_off_peak'),
                 'rate_on_peak_per_kwh': data.get('rate_on_peak'),
                 'rate_mid_peak_per_kwh': data.get('rate_mid_peak'),
                 'rate_off_peak_per_kwh': data.get('rate_off_peak'),
+                'rate_super_off_peak_per_kwh': data.get('rate_super_off_peak'),
                 'max_demand_kw': data.get('max_demand_kw'),
             },
             'meters': data.get('meters', []),
