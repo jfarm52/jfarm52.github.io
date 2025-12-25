@@ -208,6 +208,20 @@ Rules:
 - Numbers should be numeric values (no $ or commas)
 - For meters array: include meter_number, service_address, kwh, and total_charge per meter
 - confidence: 0.0-1.0 based on extraction certainty
+
+UTILITY-SPECIFIC EXTRACTION RULES:
+
+For SCE (Southern California Edison) bills:
+- utility_name: Must be "Southern California Edison" or "SCE" (NEVER "LADWP")
+- account_number: Look for 10-12 digit account number near top (common accounts: ending in 4369 or 6457)
+- rate_schedule: SHORT CODE like "TOU-GS-2-E" or "TOU-8-B" (5-15 chars). Look in Electric Charges section or near account info. If you find long text, it's NOT the rate schedule.
+- service_address: Extract complete address with street, city, state, ZIP if visible
+- For TOU data: Look for "On-Peak", "Mid-Peak", "Off-Peak" kWh values and rates in the usage/charges section
+
+For LADWP bills:
+- utility_name: "LADWP" or "Los Angeles Department of Water and Power"
+- Use "ACCOUNT NUMBER" from header (NOT "SA #" which is service agreement)
+- Separate electric charges from water charges
 {evidence_section}
 
 FULL TEXT:
