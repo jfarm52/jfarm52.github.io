@@ -212,16 +212,42 @@ Rules:
 UTILITY-SPECIFIC EXTRACTION RULES:
 
 For SCE (Southern California Edison) bills:
-- utility_name: Must be "Southern California Edison" or "SCE" (NEVER "LADWP")
-- account_number: Look for 10-12 digit account number near top (common accounts: ending in 4369 or 6457)
-- rate_schedule: SHORT CODE like "TOU-GS-2-E" or "TOU-8-B" (5-15 chars). Look in Electric Charges section or near account info. If you find long text, it's NOT the rate schedule.
-- service_address: Extract complete address with street, city, state, ZIP if visible
-- For TOU data: Look for "On-Peak", "Mid-Peak", "Off-Peak" kWh values and rates in the usage/charges section
+- utility_name: "Southern California Edison" or "SCE"
+- account_number: 10-12 digit number near top (common: ending in 4369 or 6457)
+- rate_schedule: SHORT CODE like "TOU-GS-2-E", "TOU-8-B" (5-15 chars max). Look in Electric Charges section. Long text is NOT rate schedule.
+- service_address: Complete address with street, city, state, ZIP
+- TOU data: "On-Peak", "Mid-Peak", "Off-Peak", "Super Off-Peak" kWh and rates
 
-For LADWP bills:
+For SDG&E (San Diego Gas & Electric) bills:
+- utility_name: "San Diego Gas & Electric" or "SDG&E"
+- account_number: Typically 10 digits
+- rate_schedule: SHORT CODE like "DR-SES", "AL-TOU", "DG-R", "EV-TOU-5" (5-15 chars max)
+- TOU data: "On-Peak", "Off-Peak", "Super Off-Peak" periods
+
+For PG&E (Pacific Gas & Electric) bills:
+- utility_name: "Pacific Gas & Electric" or "PG&E"
+- account_number: 10-12 digits, format XXXX-XXXX-XX
+- rate_schedule: SHORT CODE like "E-TOU-C", "A-10", "E-19", "EV2-A" (5-15 chars max)
+- TOU data: "Peak", "Part-Peak", "Off-Peak" periods
+
+For LADWP (Los Angeles Department of Water and Power) bills:
 - utility_name: "LADWP" or "Los Angeles Department of Water and Power"
-- Use "ACCOUNT NUMBER" from header (NOT "SA #" which is service agreement)
-- Separate electric charges from water charges
+- account_number: Use "ACCOUNT NUMBER" from header (NOT "SA #")
+- rate_schedule: SHORT CODE like "R-1B", "A-2", "D-1"
+- Separate electric charges from water charges (often combined)
+- TOU data: "High Peak"=On-Peak, "Low Peak"=Off-Peak, "Base"
+
+For RPU (Riverside Public Utilities) bills:
+- utility_name: "Riverside Public Utilities" or "RPU"
+- rate_schedule: SHORT CODE (municipal utility format)
+
+For IID (Imperial Irrigation District) bills:
+- utility_name: "Imperial Irrigation District" or "IID"
+- rate_schedule: SHORT CODE
+
+For Anaheim Public Utilities bills:
+- utility_name: "Anaheim Public Utilities" or "City of Anaheim"
+- rate_schedule: SHORT CODE (municipal format)
 {evidence_section}
 
 FULL TEXT:
