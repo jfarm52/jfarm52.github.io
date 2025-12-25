@@ -206,9 +206,11 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
                 rate_schedule = ''  # Force regex fallback
 
         # Service address should be reasonably complete (not just partial)
-        if service_address and len(service_address) < 15:
-            print(f"[bill_extractor] Service address seems incomplete: '{service_address}'")
-            # Don't clear it, but the regex might find a better one
+        # Force regex fallback if address is suspiciously short (likely incomplete)
+        service_address_original = service_address
+        if service_address and len(service_address) < 20:
+            print(f"[bill_extractor] Service address seems incomplete (< 20 chars): '{service_address}' - will try regex fallback")
+            service_address = ''  # Force regex to try finding a better one
 
         # UNIVERSAL regex fallback for missing fields (works for ALL utilities)
         raw_text = extracted_data.get('_raw_text', '')
@@ -256,6 +258,11 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
                         service_address = addr_text.strip()
                         print(f"[bill_extractor] Regex fallback extracted service_address: {service_address}")
                         break
+
+                # If regex didn't find anything and we had an original short address, restore it
+                if (not service_address or service_address.strip() == '') and service_address_original:
+                    service_address = service_address_original
+                    print(f"[bill_extractor] Regex found no address, keeping original: {service_address}")
 
         # Get billing period
         period_start = get_val('billing_period_start')
