@@ -849,9 +849,15 @@ SCE-SPECIFIC INSTRUCTIONS:
    - Mid-Peak → kwh_mid_peak, rate_mid_peak_per_kwh
    - Off-Peak → kwh_off_peak, rate_off_peak_per_kwh
    - Super Off-Peak → use tou fields if present
-5. RATE SCHEDULE: SCE rate schedules follow patterns like "TOU-GS-2-E", "TOU-8-B", etc. Extract from the rate information section.
-6. SERVICE TYPE: SCE bills are typically "electric" only (not combined with water like LADWP).
-7. IDENTITY CHECK: Before finalizing, verify the utility_name matches what's actually shown on the bill. If the bill header says "Southern California Edison" or "SCE", utility_name MUST be "Southern California Edison" or "SCE", NOT "LADWP".
+5. RATE SCHEDULE: SCE rate schedules are SHORT CODES like "TOU-GS-2-E", "TOU-8-B", "TOU-GS-1-E". Look in these locations:
+   - Near the account information header
+   - In the "Electric Charges" section header
+   - Below the service address
+   IMPORTANT: The rate schedule is a SHORT code (usually 5-15 characters), NOT a long description. If you find long text, it's NOT the rate schedule.
+6. DUE DATE: SCE bills show "Payment Due" or "Due Date" near the amount due. Look for format MM/DD/YYYY or "Mon DD, YYYY". Extract as YYYY-MM-DD.
+7. SERVICE ADDRESS: Extract the complete service address including street, city, state, and ZIP code if visible.
+8. SERVICE TYPE: SCE bills are typically "electric" only (not combined with water like LADWP).
+9. IDENTITY CHECK: Before finalizing, verify the utility_name matches what's actually shown on the bill. If the bill header says "Southern California Edison" or "SCE", utility_name MUST be "Southern California Edison" or "SCE", NOT "LADWP".
 
 Use null for any field you cannot confidently extract. Amounts should be numbers (no $ signs or commas).""" + training_hints_text
         
