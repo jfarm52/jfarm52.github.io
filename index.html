@@ -11226,45 +11226,26 @@
             
             // Multi-select functionality
             const selectAllCheckbox = document.getElementById('embeddedBillSelectAll');
-            const deleteSelectedBtn = document.getElementById('embeddedBillDeleteSelected');
+            let deleteSelectedBtn = document.getElementById('embeddedBillDeleteSelected');
             const fileCheckboxes = document.querySelectorAll('.embedded-bill-checkbox');
-            
+
             function updateDeleteButtonVisibility() {
                 const checkedCount = document.querySelectorAll('.embedded-bill-checkbox:checked').length;
-                if (deleteSelectedBtn) {
-                    deleteSelectedBtn.style.display = checkedCount > 0 ? 'inline-block' : 'none';
-                    deleteSelectedBtn.textContent = checkedCount > 1 ? `Delete ${checkedCount} Selected` : 'Delete Selected';
+                // Always get fresh reference in case button was replaced
+                const btn = document.getElementById('embeddedBillDeleteSelected');
+                if (btn) {
+                    btn.style.display = checkedCount > 0 ? 'inline-block' : 'none';
+                    btn.textContent = checkedCount > 1 ? `Delete ${checkedCount} Selected` : 'Delete Selected';
                 }
             }
-            
-            // Select All checkbox
-            if (selectAllCheckbox) {
-                selectAllCheckbox.addEventListener('change', function() {
-                    fileCheckboxes.forEach(cb => cb.checked = this.checked);
-                    updateDeleteButtonVisibility();
-                });
-            }
-            
-            // Individual checkboxes
-            fileCheckboxes.forEach(cb => {
-                cb.addEventListener('change', function(e) {
-                    e.stopPropagation();
-                    updateDeleteButtonVisibility();
-                    // Update select-all state
-                    if (selectAllCheckbox) {
-                        const allChecked = document.querySelectorAll('.embedded-bill-checkbox:checked').length === fileCheckboxes.length;
-                        selectAllCheckbox.checked = allChecked;
-                    }
-                });
-                cb.addEventListener('click', e => e.stopPropagation());
-            });
-            
-            // Delete Selected button
+
+            // Delete Selected button - clone to remove old listeners FIRST
             if (deleteSelectedBtn) {
                 // IMPORTANT: Remove all previous event listeners by cloning the button
                 // This prevents the delete handler from running multiple times
                 const newDeleteBtn = deleteSelectedBtn.cloneNode(true);
                 deleteSelectedBtn.parentNode.replaceChild(newDeleteBtn, deleteSelectedBtn);
+                deleteSelectedBtn = newDeleteBtn; // Update reference to new button
 
                 newDeleteBtn.addEventListener('click', async function() {
                     const checkedBoxes = document.querySelectorAll('.embedded-bill-checkbox:checked');
@@ -11332,8 +11313,30 @@
                     }
                 });
             }
+
+            // Select All checkbox - add listeners AFTER button is set up
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function() {
+                    fileCheckboxes.forEach(cb => cb.checked = this.checked);
+                    updateDeleteButtonVisibility();
+                });
+            }
+
+            // Individual checkboxes - add listeners AFTER button is set up
+            fileCheckboxes.forEach(cb => {
+                cb.addEventListener('change', function(e) {
+                    e.stopPropagation();
+                    updateDeleteButtonVisibility();
+                    // Update select-all state
+                    if (selectAllCheckbox) {
+                        const allChecked = document.querySelectorAll('.embedded-bill-checkbox:checked').length === fileCheckboxes.length;
+                        selectAllCheckbox.checked = allChecked;
+                    }
+                });
+                cb.addEventListener('click', e => e.stopPropagation());
+            });
         }
-        
+
         async function handleEmbeddedBillUpload(files) {
             if (!files || files.length === 0) return;
             
