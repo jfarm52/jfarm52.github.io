@@ -151,20 +151,27 @@ def save_bill_to_normalized_tables(file_id, project_id, extracted_data):
     This is called after successful extraction.
     Idempotent: deletes existing bills for this file_id before inserting new ones.
     """
+    # DEBUG: Log what we received
+    print(f"\n{'='*80}")
+    print(f"[bill_extractor] save_bill_to_normalized_tables called for file_id={file_id}")
+    print(f"[bill_extractor] extracted_data keys: {list(extracted_data.keys())}")
+    print(f"[bill_extractor] extracted_data: {extracted_data}")
+    print(f"{'='*80}\n")
+
     try:
         from bills_db import (
-            upsert_utility_account, upsert_utility_meter, 
+            upsert_utility_account, upsert_utility_meter,
             insert_bill, insert_bill_tou_period, delete_bills_for_file,
             update_bill_file_review_status
         )
-        
+
         # Delete any existing bills for this file to prevent duplicates on re-extraction
         delete_bills_for_file(file_id)
-        
+
         # Merge detailed_data into top-level for easier access
         # The extraction returns nested structure with detailed_data containing most values
         detailed = extracted_data.get('detailed_data', {})
-        
+
         # Helper to get value from either top-level or detailed_data
         def get_val(*keys):
             for key in keys:
